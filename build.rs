@@ -53,7 +53,11 @@ fn generate_opcode_rs_enum(data: &JsonData, out_dir: &String) {
 
     let unprefixed_data: Vec<_> = get_opcode_data_sorted(&data["unprefixed"]);
     for (opcode, instruction) in unprefixed_data.iter() {
-        let to_write = format!("\t/*{opcode:02X}*/ {}, \t//{}\n", instruction.to_string(""),instruction.description());
+        let to_write = format!(
+            "\t/*{opcode:02X}*/ {}, \t//{}\n",
+            instruction.to_string(""),
+            instruction.description()
+        );
         output
             .write_all(to_write.as_bytes())
             .expect("Could not write into the output file");
@@ -175,52 +179,72 @@ struct Instruction {
     immediate: bool,
 }
 
+fn to_camelcase(string: &String) -> String {
+    string
+        .to_lowercase()
+        .split_ascii_whitespace()
+        .map(|word| {
+            let mut word = word.to_string();
+            word.as_mut_str()
+                .get_mut(0..1)
+                .map(|c| c.make_ascii_uppercase());
+            word
+        })
+        .collect()
+}
+
 impl Instruction {
     fn to_string(&self, separator: &str) -> String {
-        let mut buff = self.mnemonic.to_uppercase();
+        let mut buff = to_camelcase(&self.mnemonic);
         for operand in &self.operands {
             let ope_name = if operand.name.starts_with('$') {
                 operand.name[1..].to_string()
             } else {
+                let mut name = operand.name.clone();
+
                 if let Some(decrement) = operand.decrement
                     && decrement
                 {
-                    format!("{}d", operand.name)
+                    name = format!("{}d", name);
                 } else if let Some(increment) = operand.increment
                     && increment
                 {
-                    format!("{}i", operand.name)
-                } else if operand.immediate && operand.name == "HL" {
-                    format!("Addr{}", operand.name)
-                } else {
-                    operand.name.clone()
+                    name = format!("{}i", name);
                 }
+                if !operand.immediate && operand.name == "HL" {
+                    name = format!("Addr{}", name)
+                }
+                name
             };
 
-            buff = format!("{}{}{}", buff, separator, ope_name);
+            buff = format!("{}{}{}", buff, separator, to_camelcase(&ope_name));
         }
 
         buff
     }
 
-    fn description(&self) -> String{
+    fn description(&self) -> String {
         let mut buff = self.mnemonic.clone();
 
         for operand in &self.operands {
-            let ope_name = {
+            let ope_name = if operand.name.starts_with('$') {
+                operand.name[1..].to_string()
+            } else {
+                let mut name = operand.name.clone();
+
                 if let Some(decrement) = operand.decrement
                     && decrement
                 {
-                    format!("{}d", operand.name)
+                    name = format!("{}-", name);
                 } else if let Some(increment) = operand.increment
                     && increment
                 {
-                    format!("{}i", operand.name)
-                } else if operand.immediate && operand.name == "HL" {
-                    format!("[{}]", operand.name)
-                } else {
-                    operand.name.clone()
+                    name = format!("{}+", name);
                 }
+                if !operand.immediate && operand.name == "HL" {
+                    name = format!("[{}]", name)
+                }
+                name
             };
 
             buff = format!("{} {}", buff, ope_name);

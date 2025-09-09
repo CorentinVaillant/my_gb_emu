@@ -1,5 +1,7 @@
 use crate::{cpu::{instructions::{ArithmeticInstruction, ArithmeticTarget, Immediate, Immediate3Bits, Instruction}, Cpu}, utils::{panic_illegal_instr, Value}};
 
+//TODO : add sp and pc arithmetics
+
 impl Cpu {
     pub(super) fn alu(
         &mut self,
@@ -133,7 +135,7 @@ impl Cpu {
             ArithmeticTarget::DE => Value::Word(self.reg.get_de()),
             ArithmeticTarget::HL => Value::Word(self.reg.get_hl()),
 
-            ArithmeticTarget::Addr(addr) => Value::Byte(self.mem_bus.readb(addr)),
+            ArithmeticTarget::HlAddr => Value::Byte(self.mem_bus.readb(self.reg.get_hl())),
         }
     }
 
@@ -151,7 +153,7 @@ impl Cpu {
             ArithmeticTarget::DE => self.reg.d,
             ArithmeticTarget::HL => self.reg.h,
 
-            ArithmeticTarget::Addr(addr) => self.mem_bus.readb(addr),
+            ArithmeticTarget::HlAddr => self.mem_bus.readb(self.reg.get_hl()),
         }
     }
 
@@ -169,7 +171,7 @@ impl Cpu {
             ArithmeticTarget::DE => self.reg.d = byte,
             ArithmeticTarget::HL => self.reg.h = byte,
 
-            ArithmeticTarget::Addr(addr) => self.mem_bus.writeb(addr, byte),
+            ArithmeticTarget::HlAddr => self.mem_bus.writeb(self.reg.get_hl(), byte),
         }
     }
 
@@ -187,7 +189,7 @@ impl Cpu {
             ArithmeticTarget::DE => self.reg.set_de(value.into()),
             ArithmeticTarget::HL => self.reg.set_hl(value.into()),
 
-            ArithmeticTarget::Addr(addr) => self.mem_bus.writeb(addr, value.first_byte()),
+            ArithmeticTarget::HlAddr => self.mem_bus.writeb(self.reg.get_hl(), value.first_byte()),
         }
     }
 

@@ -11,17 +11,17 @@ impl TryFrom<Value> for Opcode {
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         match value {
             Value::Byte(byte) => match byte_to_opcode(byte) {
-                | Opcode::ILLEGAL_D3
-                | Opcode::ILLEGAL_DB
-                | Opcode::ILLEGAL_DD
-                | Opcode::ILLEGAL_E3
-                | Opcode::ILLEGAL_E4
-                | Opcode::ILLEGAL_EB
-                | Opcode::ILLEGAL_EC
-                | Opcode::ILLEGAL_ED
-                | Opcode::ILLEGAL_F4
-                | Opcode::ILLEGAL_FC
-                | Opcode::ILLEGAL_FD => Err(InvalideOpcode),
+                | Opcode::Illegal_d3
+                | Opcode::Illegal_db
+                | Opcode::Illegal_dd
+                | Opcode::Illegal_e3
+                | Opcode::Illegal_e4
+                | Opcode::Illegal_eb
+                | Opcode::Illegal_ec
+                | Opcode::Illegal_ed
+                | Opcode::Illegal_f4
+                | Opcode::Illegal_fc
+                | Opcode::Illegal_fd => Err(InvalideOpcode),
 
                 op => Ok(op),
             },

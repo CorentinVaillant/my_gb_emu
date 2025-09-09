@@ -12,7 +12,6 @@ pub mod opcode;
 #[derive(Debug)]
 pub struct Cpu {
     reg: Registers,
-    pc : u16,
     mem_bus: MemBus,
 }
 
@@ -29,9 +28,9 @@ impl Cpu {
     }
 
     pub fn step(&mut self){
-        let instr_byte = self.mem_bus.readb(self.pc);
+        let instr_byte = self.mem_bus.readb(self.reg.pc);
 
-        if let Some(instruction) = Instruction::try_read(&mut self.pc, &self.mem_bus){
+        if let Some(instruction) = Instruction::try_read(&mut self.reg, &self.mem_bus){
             self.execute(instruction);
         }else{
             panic!("Cannot decode instruction :0x{:x}", instr_byte);

@@ -11,6 +11,9 @@ pub struct Registers {
 
     pub h: u8,
     pub l: u8,
+
+    pub sp : u16,
+    pub pc : u16,
 }
 
 // -- getters --
