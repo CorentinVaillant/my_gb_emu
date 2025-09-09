@@ -1,12 +1,11 @@
 pub use arithmetic::*;
-
-pub use crate::cpu::instructions::jump::*;
+pub use jump::*;
 
 
 #[derive(Debug, Clone, Copy)]
 pub enum Instruction {
     Arithmetic(ArithmeticInstruction,Option<Immediate>,Option<ArithmeticTarget>),
-    Jump(JumpTest)
+    Jump(JumpInstruction,JumpTest,Option<JumpTarget>),
     // Load(LoadTarget, LoadSrc)
 }
 
@@ -140,10 +139,19 @@ mod jump{
         Always
     }
 
+    #[derive(Debug,Clone, Copy)]
+    pub enum JumpTarget {
+        Imm16(u16),
+        ImmS8(i8),
+        HL,
+        Vec, // ?
+    }
+
     
 }
 
-/*mod load{
+/*
+mod load{
     #[derive(Debug,Clone, Copy)]
     pub enum LoadTarget {
         A, B, C, D, E, H, L, 
@@ -170,4 +178,5 @@ mod jump{
         
 
     }
-}*/
+}
+ */

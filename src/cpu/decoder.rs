@@ -1,24 +1,22 @@
 use crate::{
     cpu::{
-        instructions::{ArithmeticInstruction, ArithmeticTarget, Immediate, Instruction},
+        instructions::{ArithmeticInstruction, ArithmeticTarget, Immediate, Instruction, JumpInstruction, JumpTarget, JumpTest},
         opcode::Opcode, registers::Registers,
     },
     mem_bus::MemBus,
-    utils::Value,
 };
 
 impl Instruction {
     ///Read the instruction point by pc, and increment
     pub fn try_read(reg : &mut Registers, mem_bus: &MemBus) -> Option<Instruction> {
         let byte = mem_bus.readb(reg.pc);
-        reg.pc += 1;
+        reg.pc = reg.pc.wrapping_add(1);
 
-        let value = Value::Byte(byte);
-
-        let opcode = Opcode::try_from(value);
+        let opcode = Opcode::try_from(byte);
 
         if let Ok(opcode) = opcode {
             Some(match opcode {
+                // MARK: ALU INSTRUCTIONS
                 //--> 8 bits Arithmetics
                 //Add
 	            Opcode::AddAA  => Instruction::Arithmetic(ArithmeticInstruction::ADD, None, Some(ArithmeticTarget::A)),
@@ -29,7 +27,7 @@ impl Instruction {
 	            Opcode::AddAH  => Instruction::Arithmetic(ArithmeticInstruction::ADD, None, Some(ArithmeticTarget::H)),
 	            Opcode::AddAL  => Instruction::Arithmetic(ArithmeticInstruction::ADD, None, Some(ArithmeticTarget::L)),
                 Opcode::AddAN8 => Instruction::Arithmetic(ArithmeticInstruction::ADD, Some(Immediate::N8(read_next_byte(&mut reg.pc, mem_bus))), None),
-                Opcode::AddAAddrhl => Instruction::Arithmetic(ArithmeticInstruction::ADD, None, Some(ArithmeticTarget::HlAddr)),
+                Opcode::AddAAddrHL => Instruction::Arithmetic(ArithmeticInstruction::ADD, None, Some(ArithmeticTarget::HlAddr)),
                 //Adc
                 Opcode::AdcAB  => Instruction::Arithmetic(ArithmeticInstruction::ADC, None, Some(ArithmeticTarget::B)),
                 Opcode::AdcAA  => Instruction::Arithmetic(ArithmeticInstruction::ADC, None, Some(ArithmeticTarget::A)),
@@ -39,7 +37,7 @@ impl Instruction {
                 Opcode::AdcAH  => Instruction::Arithmetic(ArithmeticInstruction::ADC, None, Some(ArithmeticTarget::H)),
                 Opcode::AdcAL  => Instruction::Arithmetic(ArithmeticInstruction::ADC, None, Some(ArithmeticTarget::L)),
                 Opcode::AdcAN8 => Instruction::Arithmetic(ArithmeticInstruction::ADC, Some(Immediate::N8(read_next_byte(&mut reg.pc, mem_bus))), None),
-                Opcode::AdcAAddrhl => Instruction::Arithmetic(ArithmeticInstruction::ADC, None, Some(ArithmeticTarget::HlAddr)),
+                Opcode::AdcAAddrHL => Instruction::Arithmetic(ArithmeticInstruction::ADC, None, Some(ArithmeticTarget::HlAddr)),
                 //Sub
                 Opcode::SubAB  => Instruction::Arithmetic(ArithmeticInstruction::SUB, None, Some(ArithmeticTarget::B)),
                 Opcode::SubAA  => Instruction::Arithmetic(ArithmeticInstruction::SUB, None, Some(ArithmeticTarget::A)),
@@ -49,7 +47,7 @@ impl Instruction {
                 Opcode::SubAH  => Instruction::Arithmetic(ArithmeticInstruction::SUB, None, Some(ArithmeticTarget::H)),
                 Opcode::SubAL  => Instruction::Arithmetic(ArithmeticInstruction::SUB, None, Some(ArithmeticTarget::L)),
                 Opcode::SubAN8 => Instruction::Arithmetic(ArithmeticInstruction::SUB, Some(Immediate::N8(read_next_byte(&mut reg.pc, mem_bus))), None),
-                Opcode::SubAAddrhl => Instruction::Arithmetic(ArithmeticInstruction::SUB, None, Some(ArithmeticTarget::HlAddr)),
+                Opcode::SubAAddrHL => Instruction::Arithmetic(ArithmeticInstruction::SUB, None, Some(ArithmeticTarget::HlAddr)),
                 //Sbc
                 Opcode::SbcAB  => Instruction::Arithmetic(ArithmeticInstruction::SBC, None, Some(ArithmeticTarget::B)),
                 Opcode::SbcAA  => Instruction::Arithmetic(ArithmeticInstruction::SBC, None, Some(ArithmeticTarget::A)),
@@ -59,7 +57,7 @@ impl Instruction {
                 Opcode::SbcAH  => Instruction::Arithmetic(ArithmeticInstruction::SBC, None, Some(ArithmeticTarget::H)),
                 Opcode::SbcAL  => Instruction::Arithmetic(ArithmeticInstruction::SBC, None, Some(ArithmeticTarget::L)),
                 Opcode::SbcAN8 => Instruction::Arithmetic(ArithmeticInstruction::SBC, Some(Immediate::N8(read_next_byte(&mut reg.pc, mem_bus))), None),
-                Opcode::SbcAAddrhl => Instruction::Arithmetic(ArithmeticInstruction::SBC, None, Some(ArithmeticTarget::HlAddr)),
+                Opcode::SbcAAddrHL => Instruction::Arithmetic(ArithmeticInstruction::SBC, None, Some(ArithmeticTarget::HlAddr)),
                 //Cp
                 Opcode::CpAB  => Instruction::Arithmetic(ArithmeticInstruction::CP, None, Some(ArithmeticTarget::B)),
                 Opcode::CpAA  => Instruction::Arithmetic(ArithmeticInstruction::CP, None, Some(ArithmeticTarget::A)),
@@ -69,7 +67,7 @@ impl Instruction {
                 Opcode::CpAH  => Instruction::Arithmetic(ArithmeticInstruction::CP, None, Some(ArithmeticTarget::H)),
                 Opcode::CpAL  => Instruction::Arithmetic(ArithmeticInstruction::CP, None, Some(ArithmeticTarget::L)),
                 Opcode::CpAN8 => Instruction::Arithmetic(ArithmeticInstruction::CP, Some(Immediate::N8(read_next_byte(&mut reg.pc, mem_bus))), None),
-                Opcode::CpAAddrhl => Instruction::Arithmetic(ArithmeticInstruction::CP, None, Some(ArithmeticTarget::HlAddr)),
+                Opcode::CpAAddrHL => Instruction::Arithmetic(ArithmeticInstruction::CP, None, Some(ArithmeticTarget::HlAddr)),
                 //Inc
                 Opcode::IncA => Instruction::Arithmetic(ArithmeticInstruction::INC, None, Some(ArithmeticTarget::A)),
                 Opcode::IncB => Instruction::Arithmetic(ArithmeticInstruction::INC, None, Some(ArithmeticTarget::B)),
@@ -78,7 +76,7 @@ impl Instruction {
                 Opcode::IncE => Instruction::Arithmetic(ArithmeticInstruction::INC, None, Some(ArithmeticTarget::E)),
                 Opcode::IncH => Instruction::Arithmetic(ArithmeticInstruction::INC, None, Some(ArithmeticTarget::H)),
                 Opcode::IncL => Instruction::Arithmetic(ArithmeticInstruction::INC, None, Some(ArithmeticTarget::L)),
-                Opcode::IncAddrhl => Instruction::Arithmetic(ArithmeticInstruction::INC, None, Some(ArithmeticTarget::HlAddr)),
+                Opcode::IncAddrHL => Instruction::Arithmetic(ArithmeticInstruction::INC, None, Some(ArithmeticTarget::HlAddr)),
                 //Dec
                 Opcode::DecA => Instruction::Arithmetic(ArithmeticInstruction::DEC, None, Some(ArithmeticTarget::A)),
                 Opcode::DecB => Instruction::Arithmetic(ArithmeticInstruction::DEC, None, Some(ArithmeticTarget::B)),
@@ -87,11 +85,11 @@ impl Instruction {
                 Opcode::DecE => Instruction::Arithmetic(ArithmeticInstruction::DEC, None, Some(ArithmeticTarget::E)),
                 Opcode::DecH => Instruction::Arithmetic(ArithmeticInstruction::DEC, None, Some(ArithmeticTarget::H)),
                 Opcode::DecL => Instruction::Arithmetic(ArithmeticInstruction::DEC, None, Some(ArithmeticTarget::L)),
-                Opcode::DecAddrhl => Instruction::Arithmetic(ArithmeticInstruction::DEC, None, Some(ArithmeticTarget::HlAddr)),
+                Opcode::DecAddrHL => Instruction::Arithmetic(ArithmeticInstruction::DEC, None, Some(ArithmeticTarget::HlAddr)),
                 //--> 16 bits Arithmetics
-                Opcode::AddHlBc => Instruction::Arithmetic(ArithmeticInstruction::ADDHL, None, Some(ArithmeticTarget::BC)),
-                Opcode::AddHlDe => Instruction::Arithmetic(ArithmeticInstruction::ADDHL, None, Some(ArithmeticTarget::BC)),
-                Opcode::AddHlHl => Instruction::Arithmetic(ArithmeticInstruction::ADDHL, None, Some(ArithmeticTarget::BC)),
+                Opcode::AddHLBC => Instruction::Arithmetic(ArithmeticInstruction::ADDHL, None, Some(ArithmeticTarget::BC)),
+                Opcode::AddHLDE => Instruction::Arithmetic(ArithmeticInstruction::ADDHL, None, Some(ArithmeticTarget::BC)),
+                Opcode::AddHLHL => Instruction::Arithmetic(ArithmeticInstruction::ADDHL, None, Some(ArithmeticTarget::BC)),
                 // --> Bits
                 //And
                 Opcode::AndAA => Instruction::Arithmetic(ArithmeticInstruction::AND, None, Some(ArithmeticTarget::A)),
@@ -102,7 +100,7 @@ impl Instruction {
                 Opcode::AndAH => Instruction::Arithmetic(ArithmeticInstruction::AND, None, Some(ArithmeticTarget::H)),
                 Opcode::AndAL => Instruction::Arithmetic(ArithmeticInstruction::AND, None, Some(ArithmeticTarget::L)),
                 Opcode::AndAN8 => Instruction::Arithmetic(ArithmeticInstruction::AND, Some(Immediate::N8(read_next_byte(&mut reg.pc, mem_bus))), None),
-                Opcode::AndAAddrhl => Instruction::Arithmetic(ArithmeticInstruction::AND, None, Some(ArithmeticTarget::HlAddr)),
+                Opcode::AndAAddrHL => Instruction::Arithmetic(ArithmeticInstruction::AND, None, Some(ArithmeticTarget::HlAddr)),
                 //Or
                 Opcode::OrAA => Instruction::Arithmetic(ArithmeticInstruction::OR, None, Some(ArithmeticTarget::A)),
                 Opcode::OrAB => Instruction::Arithmetic(ArithmeticInstruction::OR, None, Some(ArithmeticTarget::B)),
@@ -112,7 +110,7 @@ impl Instruction {
                 Opcode::OrAH => Instruction::Arithmetic(ArithmeticInstruction::OR, None, Some(ArithmeticTarget::H)),
                 Opcode::OrAL => Instruction::Arithmetic(ArithmeticInstruction::OR, None, Some(ArithmeticTarget::L)),
                 Opcode::OrAN8 => Instruction::Arithmetic(ArithmeticInstruction::OR, Some(Immediate::N8(read_next_byte(&mut reg.pc, mem_bus))), None),
-                Opcode::OrAAddrhl => Instruction::Arithmetic(ArithmeticInstruction::OR, None, Some(ArithmeticTarget::HlAddr)),                
+                Opcode::OrAAddrHL => Instruction::Arithmetic(ArithmeticInstruction::OR, None, Some(ArithmeticTarget::HlAddr)),                
                 //Xor
                 Opcode::XorAA => Instruction::Arithmetic(ArithmeticInstruction::XOR, None, Some(ArithmeticTarget::A)),
                 Opcode::XorAB => Instruction::Arithmetic(ArithmeticInstruction::XOR, None, Some(ArithmeticTarget::B)),
@@ -122,7 +120,7 @@ impl Instruction {
                 Opcode::XorAH => Instruction::Arithmetic(ArithmeticInstruction::XOR, None, Some(ArithmeticTarget::H)),
                 Opcode::XorAL => Instruction::Arithmetic(ArithmeticInstruction::XOR, None, Some(ArithmeticTarget::L)),
                 Opcode::XorAN8 => Instruction::Arithmetic(ArithmeticInstruction::XOR, Some(Immediate::N8(read_next_byte(&mut reg.pc, mem_bus))), None),
-                Opcode::XorAAddrhl => Instruction::Arithmetic(ArithmeticInstruction::XOR, None, Some(ArithmeticTarget::HlAddr)),
+                Opcode::XorAAddrHL => Instruction::Arithmetic(ArithmeticInstruction::XOR, None, Some(ArithmeticTarget::HlAddr)),
                 //Cpl
                 Opcode::Cpl => Instruction::Arithmetic(ArithmeticInstruction::CPL, None, None),
                 //Bit op
@@ -132,9 +130,40 @@ impl Instruction {
                 Opcode::Rra => Instruction::Arithmetic(ArithmeticInstruction::RRA, None, None),
                 Opcode::Prefix => Self::try_read_prefixed(reg, mem_bus)?,
                 //Flags
-                Opcode::Ccf => Self::Arithmetic(ArithmeticInstruction::CCF, None,None),
-                Opcode::Scf => Self::Arithmetic(ArithmeticInstruction::SCF, None,None),
+                Opcode::Ccf => Instruction::Arithmetic(ArithmeticInstruction::CCF, None,None),
+                Opcode::Scf => Instruction::Arithmetic(ArithmeticInstruction::SCF, None,None),
+                // MARK: JUMP INSTRUCTIONS
+                //Call
+                Opcode::CallAddrN16 => Instruction::Jump(JumpInstruction::Call, JumpTest::Always, Some(JumpTarget::Imm16(read_next_word(&mut reg.pc, mem_bus)))),
+                Opcode::CallNCAddrN16 => Instruction::Jump(JumpInstruction::Call, JumpTest::NotCarry, Some(JumpTarget::Imm16(read_next_word(&mut reg.pc, mem_bus)))),
+                Opcode::CallCAddrN16 => Instruction::Jump(JumpInstruction::Call, JumpTest::Carry, Some(JumpTarget::Imm16(read_next_word(&mut reg.pc, mem_bus)))),
+                Opcode::CallNZAddrN16 => Instruction::Jump(JumpInstruction::Call, JumpTest::NotZero, Some(JumpTarget::Imm16(read_next_word(&mut reg.pc, mem_bus)))),
+                Opcode::CallZAddrN16 => Instruction::Jump(JumpInstruction::Call, JumpTest::Zero, Some(JumpTarget::Imm16(read_next_word(&mut reg.pc, mem_bus)))),
+                //Jp
+                Opcode::JpAddrN16 => Instruction::Jump(JumpInstruction::Jp, JumpTest::Always, Some(JumpTarget::Imm16(read_next_word(&mut reg.pc, mem_bus)))),
+                Opcode::JpNCAddrN16 => Instruction::Jump(JumpInstruction::Jp, JumpTest::NotCarry, Some(JumpTarget::Imm16(read_next_word(&mut reg.pc, mem_bus)))),
+                Opcode::JpCAddrN16 => Instruction::Jump(JumpInstruction::Jp, JumpTest::Carry, Some(JumpTarget::Imm16(read_next_word(&mut reg.pc, mem_bus)))),
+                Opcode::JpNZAddrN16 => Instruction::Jump(JumpInstruction::Jp, JumpTest::NotZero, Some(JumpTarget::Imm16(read_next_word(&mut reg.pc, mem_bus)))),
+                Opcode::JpZAddrN16 => Instruction::Jump(JumpInstruction::Jp, JumpTest::Zero, Some(JumpTarget::Imm16(read_next_word(&mut reg.pc, mem_bus)))),
+                Opcode::JpHL => Instruction::Jump(JumpInstruction::Jp, JumpTest::Always, Some(JumpTarget::HL)),
+                //Jr
+                Opcode::JrE8 => Instruction::Jump(JumpInstruction::Jr, JumpTest::Always, Some(JumpTarget::ImmS8(read_next_byte_signed(&mut reg.pc, mem_bus)))),
+                Opcode::JrNCE8 => Instruction::Jump(JumpInstruction::Jr, JumpTest::NotCarry, Some(JumpTarget::ImmS8(read_next_byte_signed(&mut reg.pc, mem_bus)))),
+                Opcode::JrCE8 => Instruction::Jump(JumpInstruction::Jr, JumpTest::Carry, Some(JumpTarget::ImmS8(read_next_byte_signed(&mut reg.pc, mem_bus)))),
+                Opcode::JrNZE8 => Instruction::Jump(JumpInstruction::Jr, JumpTest::NotZero, Some(JumpTarget::ImmS8(read_next_byte_signed(&mut reg.pc, mem_bus)))),
+                Opcode::JrZE8 => Instruction::Jump(JumpInstruction::Jr, JumpTest::Zero, Some(JumpTarget::ImmS8(read_next_byte_signed(&mut reg.pc, mem_bus)))),
+                //Ret
+                Opcode::Ret => Instruction::Jump(JumpInstruction::Ret, JumpTest::Always, None),
+                Opcode::RetNC => Instruction::Jump(JumpInstruction::Ret, JumpTest::NotCarry, None),
+                Opcode::RetC => Instruction::Jump(JumpInstruction::Ret, JumpTest::Carry, None),
+                Opcode::RetNZ => Instruction::Jump(JumpInstruction::Ret, JumpTest::NotZero, None),
+                Opcode::RetZ => Instruction::Jump(JumpInstruction::Ret, JumpTest::Zero, None),
+                Opcode::Reti => Instruction::Jump(JumpInstruction::RetI, JumpTest::Always, None),
+                // MARK: LOAD INSTRUCTIONS
+                //TODO
 
+
+                // ===X===
                 //--> Illegals instructions
 
                 | Opcode::Illegal_d3
@@ -147,7 +176,7 @@ impl Instruction {
                 | Opcode::Illegal_ed
                 | Opcode::Illegal_f4
                 | Opcode::Illegal_fc
-                | Opcode::Illegal_fd => panic!("Illegal opcode"),
+                | Opcode::Illegal_fd => panic!("Illegal opcode : {byte:02X}"),
                 
                 _ => unimplemented!(),
             })
@@ -158,10 +187,9 @@ impl Instruction {
 
     fn try_read_prefixed(reg : &mut Registers, mem_bus: &MemBus) -> Option<Instruction>{
         let byte = mem_bus.readb(reg.pc);
-        reg.pc += 1;
-        let value = Value::Word(0xCB00 | (byte as u16));
-        let opcode = Opcode::try_from(value);
-        if let Ok(Opcode::CBPrefixed(_)) = opcode{
+        reg.pc = reg.pc.wrapping_add(1);
+        // let opcode = PrefixedOpcode::from(byte);
+
             let operand = byte & 0b111;
             let target = match operand{
                 0b000 => ArithmeticTarget::B,
@@ -201,21 +229,24 @@ impl Instruction {
             };
             Some(instr)
             
-        }else {
-            None
-        }
+
     }
 
 }
 
+#[inline]
+fn read_next_byte_signed(pc: &mut u16, mem_bus: &MemBus) -> i8{
+    u8::cast_signed(read_next_byte(pc, mem_bus))
+}
+
 fn read_next_byte(pc: &mut u16, mem_bus: &MemBus) -> u8{
     let byte = mem_bus.readb(*pc);
-    *pc += 1;
+    *pc = pc.wrapping_add(1);
     byte
 }
 
-// fn read_next_word(pc: &mut u16, mem_bus: &MemBus) -> u16{
-//     let word = mem_bus.readw(*pc);
-//     *pc += 2;
-//     word
-// }
+fn read_next_word(pc: &mut u16, mem_bus: &MemBus) -> u16{
+    let word = mem_bus.readw(*pc);
+    *pc = pc.wrapping_add(2);
+    word
+}

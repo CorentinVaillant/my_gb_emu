@@ -90,9 +90,9 @@ impl Registers {
         }
     }
 
-    // pub const fn get_zero(&self)->bool{
-    //     self.f & ZERO_MASK != 0
-    // }
+    pub const fn get_zero(&self)->bool{
+        self.f & ZERO_MASK != 0
+    }
 
     // pub const fn get_substract(&self)->bool{
     //     self.f & SUBSTRACT_MASK != 0

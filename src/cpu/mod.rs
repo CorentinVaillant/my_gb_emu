@@ -8,6 +8,7 @@ pub mod instructions;
 mod registers;
 mod decoder;
 pub mod opcode;
+mod jumps;
 
 #[derive(Debug)]
 pub struct Cpu {
@@ -21,6 +22,9 @@ impl Cpu {
         match instruction {
             Instruction::Arithmetic(instruction, imm, target) => {
                 self.alu(instruction, imm, target)
+            }
+            Instruction::Jump(instruction,test ,target ) =>{
+                self.jump(instruction, test, target) 
             }
 
             _ => unimplemented!(),

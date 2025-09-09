@@ -63,8 +63,12 @@ fn generate_opcode_rs_enum(data: &JsonData, out_dir: &String) {
             .expect("Could not write into the output file");
     }
 
+    // output
+    //     .write_all("\tCBPrefixed(PrefixedOpcode)\n".as_bytes())
+    //     .expect("Could not write into the output file");
+
     output
-        .write_all("\tCBPrefixed(PrefixedOpcode)\n}".as_bytes())
+        .write_all("\n}".as_bytes())
         .expect("Could not write into the output file");
 
     // -- Non Prefixed
@@ -166,22 +170,21 @@ struct Operand {
     name: String,
     decrement: Option<bool>,
     increment: Option<bool>,
-    bytes: Option<u8>,
+    // bytes: Option<u8>,
     immediate: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 struct Instruction {
     mnemonic: String,
-    bytes: u8,
-    cycles: Vec<u8>,
+    // bytes: u8,
+    // cycles: Vec<u8>,
     operands: Vec<Operand>,
-    immediate: bool,
+    // immediate: bool,
 }
 
 fn to_camelcase(string: &String) -> String {
     string
-        .to_lowercase()
         .split_ascii_whitespace()
         .map(|word| {
             let mut word = word.to_string();
@@ -195,10 +198,12 @@ fn to_camelcase(string: &String) -> String {
 
 impl Instruction {
     fn to_string(&self, separator: &str) -> String {
-        let mut buff = to_camelcase(&self.mnemonic);
+        let mut buff = to_camelcase(&self.mnemonic.to_ascii_lowercase());
         for operand in &self.operands {
             let ope_name = if operand.name.starts_with('$') {
                 operand.name[1..].to_string()
+            } else if operand.name.starts_with('a') {
+                format!("AddrN{}",&operand.name[1..])
             } else {
                 let mut name = operand.name.clone();
 
@@ -229,6 +234,8 @@ impl Instruction {
         for operand in &self.operands {
             let ope_name = if operand.name.starts_with('$') {
                 operand.name[1..].to_string()
+            }else if operand.name.starts_with('a') {
+                format!("[n{}]",&operand.name[1..])
             } else {
                 let mut name = operand.name.clone();
 
