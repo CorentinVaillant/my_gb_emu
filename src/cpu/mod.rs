@@ -9,6 +9,8 @@ mod registers;
 mod decoder;
 pub mod opcode;
 mod jumps;
+mod load;
+mod errors;
 
 #[derive(Debug)]
 pub struct Cpu {
@@ -22,9 +24,15 @@ impl Cpu {
         match instruction {
             Instruction::Arithmetic(instruction, imm, target) => {
                 self.alu(instruction, imm, target)
+                    .expect("Could not execute arithmetic instruction")
             }
             Instruction::Jump(instruction,test ,target ) =>{
-                self.jump(instruction, test, target) 
+                self.jump(instruction, test, target)
+                    .expect("Could not execute jump instruction")
+            }
+            Instruction::Load(target, src) => {
+                self.load(target, src)
+                    .expect("Could not execute load instruction")
             }
 
             _ => unimplemented!(),

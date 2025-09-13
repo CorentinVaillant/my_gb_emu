@@ -1,6 +1,13 @@
-use crate::{cpu::{instructions::{ArithmeticInstruction, ArithmeticTarget, Immediate, Immediate3Bits, Instruction}, Cpu}, utils::{panic_illegal_instr, Value}};
-
-//TODO : add sp and pc arithmetics
+use crate::{
+    cpu::{
+        Cpu,
+        errors::IllegalInstructionErr,
+        instructions::{
+            ArithmeticInstruction, ArithmeticTarget, Immediate, Immediate3Bits, Instruction,
+        },
+    },
+    utils::Value,
+};
 
 impl Cpu {
     pub(super) fn alu(
@@ -8,27 +15,19 @@ impl Cpu {
         instruction: ArithmeticInstruction,
         opt_imm: Option<Immediate>,
         opt_target: Option<ArithmeticTarget>,
-    ) {
+    ) -> Result<(), IllegalInstructionErr> {
         match (opt_imm, opt_target) {
             (Some(Immediate::E3(imm3b)), Some(target)) => {
                 let value = self.get_arithmetic_target(target);
                 match value {
                     Value::Byte(value) => match instruction {
-                        ArithmeticInstruction::BIT => self.bit(imm3b, value),
-                        ArithmeticInstruction::RES => self.res(imm3b, target),
-                        ArithmeticInstruction::SET => self.set(imm3b, target),
+                        ArithmeticInstruction::Bit => self.bit(imm3b, value),
+                        ArithmeticInstruction::Res => self.res(imm3b, target),
+                        ArithmeticInstruction::Set => self.set(imm3b, target),
 
-                        _ => panic_illegal_instr(Instruction::Arithmetic(
-                            instruction,
-                            opt_imm,
-                            opt_target,
-                        )),
+                        _ => Err(Instruction::Arithmetic(instruction, opt_imm, opt_target))?,
                     },
-                    _ => panic_illegal_instr(Instruction::Arithmetic(
-                        instruction,
-                        opt_imm,
-                        opt_target,
-                    )),
+                    _ => Err(Instruction::Arithmetic(instruction, opt_imm, opt_target))?,
                 }
             }
 
@@ -36,29 +35,21 @@ impl Cpu {
                 let value: Value = imm.into();
                 match value {
                     Value::Byte(value) => match instruction {
-                        ArithmeticInstruction::ADD => self.add(value),
-                        ArithmeticInstruction::ADC => self.adc(value),
-                        ArithmeticInstruction::SUB => self.sub(value),
-                        ArithmeticInstruction::SBC => self.sbc(value),
-                        ArithmeticInstruction::AND => self.and(value),
-                        ArithmeticInstruction::OR => self.or(value),
-                        ArithmeticInstruction::XOR => self.xor(value),
-                        ArithmeticInstruction::CP => self.cp(value),
+                        ArithmeticInstruction::Add => self.add(value),
+                        ArithmeticInstruction::Adc => self.adc(value),
+                        ArithmeticInstruction::Sub => self.sub(value),
+                        ArithmeticInstruction::Sbc => self.sbc(value),
+                        ArithmeticInstruction::And => self.and(value),
+                        ArithmeticInstruction::Or => self.or(value),
+                        ArithmeticInstruction::Xor => self.xor(value),
+                        ArithmeticInstruction::Cp => self.cp(value),
 
-                        _ => panic_illegal_instr(Instruction::Arithmetic(
-                            instruction,
-                            opt_imm,
-                            opt_target,
-                        )),
+                        _ => Err(Instruction::Arithmetic(instruction, opt_imm, opt_target))?,
                     },
                     Value::Word(value) => match instruction {
-                        ArithmeticInstruction::ADDHL => self.addhl(value),
+                        ArithmeticInstruction::AddHl => self.addhl(value),
 
-                        _ => panic_illegal_instr(Instruction::Arithmetic(
-                            instruction,
-                            opt_imm,
-                            opt_target,
-                        )),
+                        _ => Err(Instruction::Arithmetic(instruction, opt_imm, opt_target))?,
                     },
                 }
             }
@@ -67,58 +58,52 @@ impl Cpu {
                 let value = self.get_arithmetic_target(target);
                 match value {
                     Value::Byte(value) => match instruction {
-                        ArithmeticInstruction::ADD => self.add(value),
-                        ArithmeticInstruction::ADC => self.adc(value),
-                        ArithmeticInstruction::SUB => self.sub(value),
-                        ArithmeticInstruction::SBC => self.sbc(value),
-                        ArithmeticInstruction::AND => self.and(value),
-                        ArithmeticInstruction::OR => self.or(value),
-                        ArithmeticInstruction::XOR => self.xor(value),
-                        ArithmeticInstruction::CP => self.cp(value),
+                        ArithmeticInstruction::Add => self.add(value),
+                        ArithmeticInstruction::Adc => self.adc(value),
+                        ArithmeticInstruction::Sub => self.sub(value),
+                        ArithmeticInstruction::Sbc => self.sbc(value),
+                        ArithmeticInstruction::And => self.and(value),
+                        ArithmeticInstruction::Or => self.or(value),
+                        ArithmeticInstruction::Xor => self.xor(value),
+                        ArithmeticInstruction::Cp => self.cp(value),
 
-                        ArithmeticInstruction::INC => self.inc(target),
-                        ArithmeticInstruction::DEC => self.dec(target),
-                        ArithmeticInstruction::SRL => self.srl(target),
-                        ArithmeticInstruction::RR => self.rr(target),
-                        ArithmeticInstruction::RL => self.rl(target),
-                        ArithmeticInstruction::RRC => self.rrc(target),
-                        ArithmeticInstruction::RLC => self.rlc(target),
-                        ArithmeticInstruction::SRA => self.sra(target),
-                        ArithmeticInstruction::SLA => self.sla(target),
-                        ArithmeticInstruction::SWAP => self.swap(target),
+                        ArithmeticInstruction::Inc => self.inc(target),
+                        ArithmeticInstruction::Dec => self.dec(target),
+                        ArithmeticInstruction::Srl => self.srl(target),
+                        ArithmeticInstruction::Rr => self.rr(target),
+                        ArithmeticInstruction::Rl => self.rl(target),
+                        ArithmeticInstruction::Rrc => self.rrc(target),
+                        ArithmeticInstruction::Rlc => self.rlc(target),
+                        ArithmeticInstruction::Sra => self.sra(target),
+                        ArithmeticInstruction::Sla => self.sla(target),
+                        ArithmeticInstruction::Swap => self.swap(target),
 
-                        _ => panic_illegal_instr(Instruction::Arithmetic(
-                            instruction,
-                            opt_imm,
-                            opt_target,
-                        )),
+                        _ => Err(Instruction::Arithmetic(instruction, opt_imm, opt_target))?,
                     },
                     Value::Word(value) => match instruction {
-                        ArithmeticInstruction::ADDHL => self.addhl(value),
+                        ArithmeticInstruction::AddHl => self.addhl(value),
 
-                        ArithmeticInstruction::INC => self.inc(target),
-                        ArithmeticInstruction::DEC => self.dec(target),
+                        ArithmeticInstruction::Inc => self.inc(target),
+                        ArithmeticInstruction::Dec => self.dec(target),
 
-                        _ => panic_illegal_instr(Instruction::Arithmetic(
-                            instruction,
-                            opt_imm,
-                            opt_target,
-                        )),
+                        _ => Err(Instruction::Arithmetic(instruction, opt_imm, opt_target))?,
                     },
                 }
             }
             (None, None) => match instruction {
-                ArithmeticInstruction::CCF => self.ccf(),
-                ArithmeticInstruction::SCF => self.scf(),
-                ArithmeticInstruction::RRA => self.rra(),
-                ArithmeticInstruction::RLA => self.rla(),
-                ArithmeticInstruction::RRCA => self.rrca(),
-                ArithmeticInstruction::RLCA => self.rlca(),
-                ArithmeticInstruction::CPL => self.cpl(),
+                ArithmeticInstruction::Ccf => self.ccf(),
+                ArithmeticInstruction::Scf => self.scf(),
+                ArithmeticInstruction::Rra => self.rra(),
+                ArithmeticInstruction::Rla => self.rla(),
+                ArithmeticInstruction::Rrca => self.rrca(),
+                ArithmeticInstruction::Rlca => self.rlca(),
+                ArithmeticInstruction::Cpl => self.cpl(),
 
-                _ => panic_illegal_instr(Instruction::Arithmetic(instruction, opt_imm, opt_target)),
+                _ => Err(Instruction::Arithmetic(instruction, opt_imm, opt_target))?,
             },
         }
+
+        Ok(())
     }
 
     fn get_arithmetic_target(&self, target: ArithmeticTarget) -> Value {
@@ -134,6 +119,9 @@ impl Cpu {
             ArithmeticTarget::BC => Value::Word(self.reg.get_bc()),
             ArithmeticTarget::DE => Value::Word(self.reg.get_de()),
             ArithmeticTarget::HL => Value::Word(self.reg.get_hl()),
+
+            ArithmeticTarget::SP => Value::Word(self.reg.sp),
+            ArithmeticTarget::PC => Value::Word(self.reg.pc),
 
             ArithmeticTarget::HlAddr => Value::Byte(self.mem_bus.readb(self.reg.get_hl())),
         }
@@ -154,6 +142,9 @@ impl Cpu {
             ArithmeticTarget::HL => self.reg.h,
 
             ArithmeticTarget::HlAddr => self.mem_bus.readb(self.reg.get_hl()),
+
+            ArithmeticTarget::SP => (self.reg.sp & 0xFF) as u8, //should not happen
+            ArithmeticTarget::PC => (self.reg.sp & 0xFF) as u8, //should not happen
         }
     }
 
@@ -170,6 +161,8 @@ impl Cpu {
             ArithmeticTarget::BC => self.reg.b = byte,
             ArithmeticTarget::DE => self.reg.d = byte,
             ArithmeticTarget::HL => self.reg.h = byte,
+            ArithmeticTarget::SP => (), //should not happen
+            ArithmeticTarget::PC => (), //should not happen
 
             ArithmeticTarget::HlAddr => self.mem_bus.writeb(self.reg.get_hl(), byte),
         }
@@ -188,6 +181,8 @@ impl Cpu {
             ArithmeticTarget::BC => self.reg.set_bc(value.into()),
             ArithmeticTarget::DE => self.reg.set_de(value.into()),
             ArithmeticTarget::HL => self.reg.set_hl(value.into()),
+            ArithmeticTarget::SP => self.reg.sp = value.into(),
+            ArithmeticTarget::PC => self.reg.sp = value.into(),
 
             ArithmeticTarget::HlAddr => self.mem_bus.writeb(self.reg.get_hl(), value.first_byte()),
         }
@@ -456,7 +451,7 @@ impl Cpu {
         self.reg.set_zero(result == 0);
         self.reg.set_substract(false);
         self.reg.set_half_carry(false);
-        self.reg.set_carry(result & 0x80 == 1);
+        self.reg.set_carry(value & 0b1 == 1);
     }
 
     fn rlc(&mut self, target: ArithmeticTarget) {

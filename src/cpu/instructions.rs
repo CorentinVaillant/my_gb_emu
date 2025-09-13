@@ -1,12 +1,13 @@
 pub use arithmetic::*;
 pub use jump::*;
+pub use load::*;
 
 
 #[derive(Debug, Clone, Copy)]
 pub enum Instruction {
     Arithmetic(ArithmeticInstruction,Option<Immediate>,Option<ArithmeticTarget>),
     Jump(JumpInstruction,JumpTest,Option<JumpTarget>),
-    // Load(LoadTarget, LoadSrc)
+    Load(LoadDest, LoadSrc)
 }
 
 mod arithmetic {
@@ -14,35 +15,35 @@ mod arithmetic {
 
     #[derive(Debug, Clone, Copy)]
     pub enum ArithmeticInstruction {
-        ADD,
-        ADDHL,
-        ADC,
-        SUB,
-        SBC,
-        AND,
-        OR,
-        XOR,
-        CP,
-        INC,
-        DEC,
-        CCF,
-        SCF,
-        RRA,
-        RLA,
-        RRCA,
-        RLCA,
-        CPL,
-        BIT,
-        RES,
-        SET,
-        SRL,
-        RR,
-        RL,
-        RRC,
-        RLC,
-        SRA,
-        SLA,
-        SWAP,
+        Add,
+        AddHl,
+        Adc,
+        Sub,
+        Sbc,
+        And,
+        Or,
+        Xor,
+        Cp,
+        Inc,
+        Dec,
+        Ccf,
+        Scf,
+        Rra,
+        Rla,
+        Rrca,
+        Rlca,
+        Cpl,
+        Bit,
+        Res,
+        Set,
+        Srl,
+        Rr,
+        Rl,
+        Rrc,
+        Rlc,
+        Sra,
+        Sla,
+        Swap,
     }
 
     #[derive(Debug, Clone, Copy)]
@@ -58,6 +59,9 @@ mod arithmetic {
         BC,
         DE,
         HL,
+
+        SP,
+        PC,
 
         HlAddr,
     }
@@ -150,15 +154,14 @@ mod jump{
     
 }
 
-/*
+
 mod load{
     #[derive(Debug,Clone, Copy)]
-    pub enum LoadTarget {
+    pub enum ByteLoadDest{
         A, B, C, D, E, H, L, 
 
-        BC, DE, HL, 
-
         AddrC,
+        AddrSP,
 
         AddrBC, AddrDE, AddrHL, AddrHLadd, AddrHLsub,
 
@@ -166,17 +169,40 @@ mod load{
     }
 
     #[derive(Debug,Clone, Copy)]
+    pub enum WordLoadDest{
+
+        BC, DE, HL,
+
+        SP,
+
+        AddrC,
+        AddrSP,
+
+        AddrBC, AddrDE, AddrHL, AddrHLadd, AddrHLsub,
+
+        AddrImm(u16),
+    }
+
+    #[derive(Debug,Clone, Copy)]
+    pub enum LoadDest {
+        ByteDest(ByteLoadDest),
+        WordDest(WordLoadDest),
+    }
+
+    #[derive(Debug,Clone, Copy)]
     pub enum LoadSrc {
         A, B, C, D, E, H, L, 
+
+        HL,
+        SP,
         
         Imm8(u8),
         Imm16(u16),
 
+        AddrSP,
         AddrBC, AddrDE, AddrHL, AddrHLadd, AddrHLsub, 
+        AddrC,
 
         AddrImm(u16),
-        
-
     }
 }
- */

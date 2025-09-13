@@ -1,8 +1,8 @@
-use crate::{cpu::{instructions::{JumpInstruction, JumpTarget, JumpTest}, Cpu}, utils::panic_illegal_instr};
+use crate::cpu::{errors::IllegalInstructionErr, instructions::{JumpInstruction, JumpTarget, JumpTest}, Cpu};
 
 impl Cpu {
-    pub fn jump(&mut self, instruction :JumpInstruction,test: JumpTest,opt_target: Option<JumpTarget>){
-        if !self.jump_test(test){return;}
+    pub fn jump(&mut self, instruction :JumpInstruction,test: JumpTest,opt_target: Option<JumpTarget>) -> Result<(), IllegalInstructionErr>{
+        if !self.jump_test(test){return Ok(());}
         if let Some(target) = opt_target{
             match (instruction, target){
                 //Call
@@ -17,20 +17,22 @@ impl Cpu {
                 (JumpInstruction::Jr , JumpTarget::ImmS8(offset)) =>
                     self.jr(offset),
 
-                _=>panic_illegal_instr(super::instructions::Instruction::Jump(instruction, test, opt_target))
+                _=>Err(super::instructions::Instruction::Jump(instruction, test, opt_target))?
             }
         }else{
             match instruction{
-
                 //Ret
                 JumpInstruction::Ret => 
                     self.ret(),
                 JumpInstruction::RetI => 
                     self.reti(),
-                _=>panic_illegal_instr(super::instructions::Instruction::Jump(instruction, test, opt_target))
+
+                _=>Err(super::instructions::Instruction::Jump(instruction, test, opt_target))?
             }
 
         }
+
+        Ok(())
     }
 
     fn jump_test(&self, test: JumpTest) -> bool{

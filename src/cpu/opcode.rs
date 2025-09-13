@@ -9,23 +9,24 @@ impl TryFrom<u8> for Opcode {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match byte_to_opcode(value) {
-                | Opcode::Illegal_d3
-                | Opcode::Illegal_db
-                | Opcode::Illegal_dd
-                | Opcode::Illegal_e3
-                | Opcode::Illegal_e4
-                | Opcode::Illegal_eb
-                | Opcode::Illegal_ec
-                | Opcode::Illegal_ed
-                | Opcode::Illegal_f4
-                | Opcode::Illegal_fc
-                | Opcode::Illegal_fd => Err(InvalideOpcode),
+                | Opcode::IllegalD3
+                | Opcode::IllegalDb
+                | Opcode::IllegalDd
+                | Opcode::IllegalE3
+                | Opcode::IllegalE4
+                | Opcode::IllegalEb
+                | Opcode::IllegalEc
+                | Opcode::IllegalEd
+                | Opcode::IllegalF4
+                | Opcode::IllegalFc
+                | Opcode::IllegalFd => Err(InvalideOpcode),
 
                 op => Ok(op),
         }
     }
 }
 
+#[cfg(prefixed_opcode)]
 impl From<u8> for PrefixedOpcode{
     fn from(value: u8) -> Self {
         byte_to_prefixed_opcode(value)
@@ -33,3 +34,7 @@ impl From<u8> for PrefixedOpcode{
 }
 
 include! {concat!(env!("OUT_DIR"), "/opcode_rs/byte_to_opcode.rs")}
+
+include! {concat!(env!("OUT_DIR"), "/opcode_rs/mnemonic_enum.rs")}
+
+include! {concat!(env!("OUT_DIR"), "/opcode_rs/opcode_to_mnemonics.rs")}

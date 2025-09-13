@@ -5,6 +5,9 @@ edition = "2024"
 
 [dependencies]
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(prefixed_opcode)'] }
+
 
 [build-dependencies]
 serde_json = "1.0.143"

@@ -1,262 +1,238 @@
-use std::{collections::HashMap, fs, io::Write, path::PathBuf};
-
-//Files consts
-pub const OPCODE_RS_ENUM_PATH: &str = "opcode_rs/enum.rs";
-pub const OPCODE_RS_BYTE_TO_OPCODE_PATH: &str = "opcode_rs/byte_to_opcode.rs";
-
-//Enum gen const
-const OPCODE_RS_ENUM_HEAD: &str =
-    "//generated with build.rs \n//contain all the constants for opcode.rs\n";
-
-const OPCODE_RS_ENUM_DECLARATION: &str = "\n#[allow(non_camel_case_types)]\npub enum Opcode{\n";
-const OPCODE_RS_PREFIXED_ENUM_DECLARATION: &str =
-    "\n#[allow(non_camel_case_types)]\npub enum PrefixedOpcode{\n";
-//Convertion gen const
-pub const OPCODE_RS_TRY_FROM_VALUE_DECLARATION: &str =
-    "\nuse crate::utils::Value;\n impl TryFrom<Value> for Opcode{\n
-\t
-";
-
+use std::{
+    collections::{HashMap, HashSet},
+    fs::{self, File},
+    io::{Result, Write},
+    path::{Path, PathBuf},
+};
 use serde::Deserialize;
+
+
+// Output paths
+const OPCODE_RS_ENUM_PATH: &str = "opcode_rs/enum.rs";
+const OPCODE_RS_BYTE_TO_OPCODE_PATH: &str = "opcode_rs/byte_to_opcode.rs";
+const OPCODE_RS_MNEMONICS_PATH: &str = "opcode_rs/mnemonic_enum.rs";
+const OPCODE_RS_OPCODE_TO_MNEMONICS_PATH: &str = "opcode_rs/opcode_to_mnemonics.rs";
 
 pub fn main() {
     println!("cargo::rerun-if-changed=build_resources/opcodes.json");
+    println!("cargo::rustc-check-cfg=cfg(prefixed_opcode)");
 
     let json_str = include_str!("build_resources/opcodes.json");
     let data: JsonData = serde_json::from_str(json_str).expect("Could not read data");
 
-    let out_dir = std::env::var("OUT_DIR").expect("Could not get OUT_DIR env var");
-    generate_opcode_rs_enum(&data, &out_dir);
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+
+    write_enum_file(&data, &out_dir.join(OPCODE_RS_ENUM_PATH)).unwrap();
+    write_byte_to_opcode_file(&data, &out_dir.join(OPCODE_RS_BYTE_TO_OPCODE_PATH)).unwrap();
+    write_mnemonic_file(&data, &out_dir.join(OPCODE_RS_MNEMONICS_PATH)).unwrap();
+    write_opcode_to_mnemonic_file(&data, &out_dir.join(OPCODE_RS_OPCODE_TO_MNEMONICS_PATH)).unwrap()
 }
 
+// === Data model ===
 type JsonData = HashMap<String, HashMap<String, Instruction>>;
 
-fn generate_opcode_rs_enum(data: &JsonData, out_dir: &String) {
-    // -- File creation
-    let dest = PathBuf::from(out_dir).join(OPCODE_RS_ENUM_PATH);
-
-    if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent).expect("Could not create directories for output");
-    }
-
-    println!("Creating file : {:?}", dest);
-    let mut output = fs::File::create(dest).expect("Could not create the output file");
-
-    output
-        .write_all(OPCODE_RS_ENUM_HEAD.as_bytes())
-        .expect("Could not write into the output file");
-
-    // -- Non Prefixed
-    output
-        .write_all(OPCODE_RS_ENUM_DECLARATION.as_bytes())
-        .expect("Could not write into the output file");
-
-    let unprefixed_data: Vec<_> = get_opcode_data_sorted(&data["unprefixed"]);
-    for (opcode, instruction) in unprefixed_data.iter() {
-        let to_write = format!(
-            "\t/*{opcode:02X}*/ {}, \t//{}\n",
-            instruction.to_string(""),
-            instruction.description()
-        );
-        output
-            .write_all(to_write.as_bytes())
-            .expect("Could not write into the output file");
-    }
-
-    // output
-    //     .write_all("\tCBPrefixed(PrefixedOpcode)\n".as_bytes())
-    //     .expect("Could not write into the output file");
-
-    output
-        .write_all("\n}".as_bytes())
-        .expect("Could not write into the output file");
-
-    // -- Non Prefixed
-    output
-        .write_all(OPCODE_RS_PREFIXED_ENUM_DECLARATION.as_bytes())
-        .expect("Could not write into the output file");
-
-    let prefixed_data: Vec<_> = get_opcode_data_sorted(&data["cbprefixed"]);
-    for (opcode, instruction) in prefixed_data.iter() {
-        let to_write = format!("\t/*{opcode:02X}*/ {},\n", instruction.to_string(""),);
-        output
-            .write_all(to_write.as_bytes())
-            .expect("Could not write into the output file");
-    }
-
-    output
-        .write_all("}\n".as_bytes())
-        .expect("Could not write into the output file");
-
-    // -- TryFrom Value
-
-    // -- File creation
-    let dest = PathBuf::from(out_dir).join(OPCODE_RS_BYTE_TO_OPCODE_PATH);
-
-    if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent).expect("Could not create directories for output");
-    }
-
-    println!("Creating file : {:?}", dest);
-    let mut output = fs::File::create(dest).expect("Could not create the output file");
-
-    // -- Byte to opcode
-    output
-        .write_all(
-            "\nconst fn byte_to_opcode(byte:u8)->Opcode{\n
-    match byte{ \n"
-                .as_bytes(),
-        )
-        .expect("Could not write into the output file");
-    for (opcode, instruction) in unprefixed_data.iter() {
-        output
-            .write_all(
-                format!(
-                    "\t\t0x{opcode:02X} => Opcode::{},\n",
-                    instruction.to_string("")
-                )
-                .as_bytes(),
-            )
-            .expect("Could not write into the output file");
-    }
-    output
-        .write_all("\t}\n}".as_bytes())
-        .expect("Could not write into the output file");
-
-    // -- Byte to prefixed opcode
-    output
-        .write_all(
-            "\nconst fn byte_to_prefixed_opcode(byte:u8)->PrefixedOpcode{\n
-    match byte{ \n"
-                .as_bytes(),
-        )
-        .expect("Could not write into the output file");
-    for (opcode, instruction) in prefixed_data.iter() {
-        output
-            .write_all(
-                format!(
-                    "\t\t0x{opcode:02X} => PrefixedOpcode::{},\n",
-                    instruction.to_string("")
-                )
-                .as_bytes(),
-            )
-            .expect("Could not write into the output file");
-    }
-    output
-        .write_all("\t}\n}".as_bytes())
-        .expect("Could not write into the output file");
-}
-
-fn get_opcode_data_sorted(data: &HashMap<String, Instruction>) -> Vec<(u8, Instruction)> {
-    let mut data: Vec<_> = data
-        .iter()
-        .map(|(opcode, instruction)| {
-            let trim = opcode.trim_start_matches("0x");
-            (
-                u8::from_str_radix(trim, 16).expect("could not parse opcode"),
-                instruction.clone(),
-            )
-        })
-        .collect();
-
-    data.sort_by(|(op1, _), (op2, _)| op1.cmp(op2));
-
-    data
-}
-
-//structs
 #[derive(Debug, Clone, Deserialize)]
 struct Operand {
     name: String,
     decrement: Option<bool>,
     increment: Option<bool>,
-    // bytes: Option<u8>,
     immediate: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 struct Instruction {
     mnemonic: String,
-    // bytes: u8,
-    // cycles: Vec<u8>,
     operands: Vec<Operand>,
-    // immediate: bool,
 }
 
-fn to_camelcase(string: &String) -> String {
-    string
-        .split_ascii_whitespace()
-        .map(|word| {
-            let mut word = word.to_string();
-            word.as_mut_str()
-                .get_mut(0..1)
-                .map(|c| c.make_ascii_uppercase());
-            word
+// === File writers ===
+
+fn write_enum_file(data: &JsonData, dest: &Path) -> Result<()> {
+    let mut f = create_output_file(dest)?;
+
+    writeln!(f, "// Generated by build.rs")?;
+    // Unprefixed
+    writeln!(f, "#[derive(Debug, Clone, Copy, PartialEq)]\npub enum Opcode {{")?;
+    for (opcode, inst) in get_opcode_data_sorted(&data["unprefixed"]) {
+        writeln!(f, "\t/*{opcode:02X}*/ {}, // {}", inst.to_string(""), inst.description())?;
+    }
+    writeln!(f, "}}\n")?;
+
+    // Prefixed
+    #[cfg(prefixed_opcode)]
+    {
+        writeln!(f, "#[derive(Debug, Clone, Copy, PartialEq)]\npub enum PrefixedOpcode {{")?;
+        for (opcode, inst) in get_opcode_data_sorted(&data["cbprefixed"]) {
+            writeln!(f, "\t/*{opcode:02X}*/ {},", inst.to_string(""))?;
+        }
+        writeln!(f, "}}")?;
+    }
+
+    Ok(())
+}
+
+fn write_byte_to_opcode_file(data: &JsonData, dest: &Path) -> Result<()> {
+    let mut f = create_output_file(dest)?;
+
+    writeln!(f, "// Generated by build.rs")?;
+
+    // Unprefixed
+    writeln!(f, "const fn byte_to_opcode(byte: u8) -> Opcode {{")?;
+    writeln!(f, "\tmatch byte {{")?;
+    for (opcode, inst) in get_opcode_data_sorted(&data["unprefixed"]) {
+        writeln!(f, "\t\t0x{opcode:02X} => Opcode::{},", inst.to_string(""))?;
+    }
+    writeln!(f, "\t}}")?;
+    writeln!(f, "}}")?;
+
+    // Prefixed
+    #[cfg(prefixed_opcode)]
+    {
+        writeln!(f, "\nconst fn byte_to_prefixed_opcode(byte: u8) -> PrefixedOpcode {{")?;
+        writeln!(f, "\tmatch byte {{")?;
+        for (opcode, inst) in get_opcode_data_sorted(&data["cbprefixed"]) {
+            writeln!(f, "\t\t0x{opcode:02X} => PrefixedOpcode::{},", inst.to_string(""))?;
+        }
+        writeln!(f, "\t}}")?;
+        writeln!(f, "}}")?;
+    }
+
+    Ok(())
+}
+
+fn write_mnemonic_file(data: &JsonData, dest: &Path) -> Result<()> {
+    let mut f = create_output_file(dest)?;
+
+    let mut mnemonics = HashSet::new();
+    for inst in data["unprefixed"].values().chain(data["cbprefixed"].values()) {
+        mnemonics.insert(to_camelcase(&inst.mnemonic.to_ascii_lowercase()));
+    }
+
+    writeln!(f, "// Generated by build.rs")?;
+    writeln!(f, "#[derive(Debug, Clone, Copy, PartialEq)]")?;
+    writeln!(f, "#[allow(dead_code)]")?;
+    writeln!(f, "pub enum Mnemonic {{")?;
+    for mnemonic in mnemonics {
+        writeln!(f, "\t{},", mnemonic)?;
+    }
+    writeln!(f, "}}")?;
+
+    Ok(())
+}
+
+fn write_opcode_to_mnemonic_file(data: &JsonData, dest: &Path) -> Result<()>{
+    let mut f = create_output_file(dest)?;
+    
+    writeln!(f, "// Generated by build.rs")?;
+    // Unprefixed
+    writeln!(f, "impl Opcode {{")?;
+    writeln!(f, "\tpub const fn get_mnemonic(&self)->Mnemonic{{")?;
+    writeln!(f, "\t\tmatch self{{")?;
+    
+    for inst in data["unprefixed"].values(){
+        writeln!(f, "\t\t\tOpcode::{} => Mnemonic::{},", inst.to_string(""), to_camelcase(&inst.mnemonic.to_ascii_lowercase()))?;
+    }
+    writeln!(f, "\t\t}}")?;
+    writeln!(f, "\t}}")?;
+    writeln!(f, "}}")?;
+
+    // Prefixed
+    #[cfg(prefixed_opcode)]
+    {
+        writeln!(f, "impl PrefixedOpcode {{")?;
+        writeln!(f, "\tpub const fn get_mnemonic(&self)->Mnemonic{{")?;
+        writeln!(f, "\t\tmatch self{{")?;
+        
+        for inst in data["cbprefixed"].values(){
+            writeln!(f, "\t\t\tPrefixedOpcode::{} => Mnemonic::{},", inst.to_string(""), to_camelcase(&inst.mnemonic.to_ascii_lowercase()))?;
+        }
+        writeln!(f, "\t\t}}")?;
+        writeln!(f, "\t}}")?;
+        writeln!(f, "}}")?;
+    }
+
+
+    
+    Ok(())
+}
+
+// === Helpers ===
+
+fn create_output_file(path: &Path) -> Result<File> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    println!("Generating {:?}", path);
+    File::create(path)
+}
+
+fn get_opcode_data_sorted(
+    data: &HashMap<String, Instruction>,
+) -> Vec<(u8, &Instruction)> {
+    let mut v: Vec<_> = data.iter().map(|(hex, inst)| {
+        let n = u8::from_str_radix(hex.trim_start_matches("0x"), 16).unwrap();
+        (n, inst)
+    }).collect();
+    v.sort_by_key(|(n, _)| *n);
+    v
+}
+
+fn to_camelcase(s: &str) -> String {
+    s.split(|c: char| c == '_' || c.is_whitespace())
+        .filter(|w| !w.is_empty())
+        .map(|w| {
+            let mut c = w.chars();
+            match c.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            }
         })
         .collect()
 }
 
+// === Display helpers ===
+
 impl Instruction {
-    fn to_string(&self, separator: &str) -> String {
+    fn to_string(&self, sep: &str) -> String {
         let mut buff = to_camelcase(&self.mnemonic.to_ascii_lowercase());
-        for operand in &self.operands {
-            let ope_name = if operand.name.starts_with('$') {
-                operand.name[1..].to_string()
-            } else if operand.name.starts_with('a') {
-                format!("AddrN{}",&operand.name[1..])
-            } else {
-                let mut name = operand.name.clone();
-
-                if let Some(decrement) = operand.decrement
-                    && decrement
-                {
-                    name = format!("{}d", name);
-                } else if let Some(increment) = operand.increment
-                    && increment
-                {
-                    name = format!("{}i", name);
-                }
-                if !operand.immediate && operand.name == "HL" {
-                    name = format!("Addr{}", name)
-                }
-                name
-            };
-
-            buff = format!("{}{}{}", buff, separator, to_camelcase(&ope_name));
+        for op in &self.operands {
+            let mut name = op.name.clone();
+            if op.name.starts_with('$') {
+                name = op.name[1..].to_string();
+            } else if op.name.starts_with('a') {
+                name = format!("AddrN{}", &op.name[1..]);
+            } else if !op.immediate && op.name == "HL" {
+                name = format!("Addr{}", op.name);
+            }
+            if op.decrement.unwrap_or(false) {
+                name.push('d');
+            } else if op.increment.unwrap_or(false) {
+                name.push('i');
+            }
+            buff = format!("{buff}{sep}{}", to_camelcase(&name));
         }
-
         buff
     }
 
     fn description(&self) -> String {
         let mut buff = self.mnemonic.clone();
-
-        for operand in &self.operands {
-            let ope_name = if operand.name.starts_with('$') {
-                operand.name[1..].to_string()
-            }else if operand.name.starts_with('a') {
-                format!("[n{}]",&operand.name[1..])
-            } else {
-                let mut name = operand.name.clone();
-
-                if let Some(decrement) = operand.decrement
-                    && decrement
-                {
-                    name = format!("{}-", name);
-                } else if let Some(increment) = operand.increment
-                    && increment
-                {
-                    name = format!("{}+", name);
-                }
-                if !operand.immediate && operand.name == "HL" {
-                    name = format!("[{}]", name)
-                }
-                name
-            };
-
-            buff = format!("{} {}", buff, ope_name);
+        for op in &self.operands {
+            let mut name = op.name.clone();
+            if !op.immediate && op.name == "HL" {
+                name = format!("[{}]", name);
+            } else if op.name.starts_with('a') {
+                name = format!("[n{}]", &op.name[1..]);
+            } else if op.name.starts_with('$') {
+                name = op.name[1..].to_string();
+            }
+            if op.decrement.unwrap_or(false) {
+                name.push('-');
+            } else if op.increment.unwrap_or(false) {
+                name.push('+');
+            }
+            buff.push(' ');
+            buff.push_str(&name);
         }
-
         buff
     }
 }
