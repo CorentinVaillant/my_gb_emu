@@ -1,6 +1,6 @@
 use crate::{
     cpu::{
-        instructions::{ArithmeticInstruction, ArithmeticTarget, ByteLoadDest, Immediate, Instruction, JumpInstruction, JumpTarget, JumpTest, LoadSrc, LoadDest, WordLoadDest}, opcode::{Mnemonic, Opcode}, registers::Registers
+        instructions::{ArithmeticInstruction, ArithmeticTarget, ByteLoadDest, Immediate, Instruction, JumpInstruction, JumpTarget, JumpTest, LoadDest, LoadSrc, MiscInstruction, StackInstruction, StackReg16, WordLoadDest}, opcode::{Mnemonic, Opcode}, registers::Registers
     },
     mem_bus::MemBus,
 };
@@ -52,6 +52,10 @@ impl Instruction {
                     }else{
                         Instruction::Arithmetic(ArithmeticInstruction::Sbc, None, Some(byte_to_8_arithmetic_target(byte)))
                     }
+                }
+                //Daa
+                Mnemonic::Daa => {
+                    Instruction::Arithmetic(ArithmeticInstruction::Daa, None, None)
                 }
                 //Cp
                 Mnemonic::Cp => {
@@ -144,6 +148,15 @@ impl Instruction {
                         Instruction::Jump(JumpInstruction::Ret, test, None)
                     }
                 }
+
+                Mnemonic::Reti => {
+                    Instruction::Jump(JumpInstruction::RetI, JumpTest::Always, None)
+                }
+                //Rst
+                Mnemonic::Rst => {
+                    let target = byte & 0b0001_1000;
+                    Instruction::Jump(JumpInstruction::Rst, JumpTest::Always, Some(JumpTarget::Imm16(target as u16)))
+                }
                 // MARK: LOAD INSTRUCTIONS
                 Mnemonic::Ld => {
                     match opcode {
@@ -169,15 +182,28 @@ impl Instruction {
                             Instruction::Load(LoadDest::WordDest(WordLoadDest::AddrImm(imm)), LoadSrc::SP)
                         }
                         _ => {
-                            let r16 = (byte & 0b0011_0000) >> 4;
-                            match byte & 0xF {
-                                // LD r16 imm16
-                                0b0001 => {
-                                    let dest = byte_to_16_load_dest(r16);
-                                    let imm = read_next_word(&mut reg.pc, mem_bus);
+                            if byte & 0b1100_0000 == 0b0100_0000{
+                                let dest = byte_to_8_reg_load_dest((byte) >> 3);
+                                let src = byte_to_8_reg_load_src(byte);
+                                Instruction::Load(LoadDest::ByteDest(dest), src)
 
-                                    Instruction::Load(LoadDest::WordDest(dest), LoadSrc::Imm16(imm))
-                                },
+                            }else
+                            // LD r8, imm8
+                            if byte & 0b110 == 0b110 {
+                                let dest = byte_to_8_reg_load_dest(byte >> 3);
+                                let imm = read_next_byte(&mut reg.pc, mem_bus);
+                                Instruction::Load(LoadDest::ByteDest(dest), LoadSrc::Imm8(imm))
+                            }else{
+
+                                let r16 = (byte & 0b0011_0000) >> 4;
+                                match byte & 0xF {
+                                    // LD r16 imm16
+                                    0b0001 => {
+                                        let dest = byte_to_16_load_dest(r16);
+                                        let imm = read_next_word(&mut reg.pc, mem_bus);
+                                        
+                                        Instruction::Load(LoadDest::WordDest(dest), LoadSrc::Imm16(imm))
+                                    },
                                 // LD [r16] a
                                 0b0010 => {
                                     let dest = byte_to_8_load_dest_addr(r16);
@@ -190,9 +216,12 @@ impl Instruction {
                                     
                                     Instruction::Load(LoadDest::ByteDest(ByteLoadDest::A), src)
                                 },
-                               
+                                
+                                
+                                
                                 16..=u8::MAX => unreachable!(),
                                 _ => return None,
+                            }
                             }   
                             
                         }
@@ -214,10 +243,32 @@ impl Instruction {
                     }
                 }
 
+                //MARK: STACK INSTRUCTIONS
+                Mnemonic::Push => {
+                    let reg = byte_to_stack_r6(byte >> 4);
+                    Instruction::Stack(StackInstruction::Push, reg)
+                }
+                Mnemonic::Pop => {
+                    let reg = byte_to_stack_r6(byte >> 4);
+                    Instruction::Stack(StackInstruction::Pop, reg)
+                }
 
-                // ===X===
-                //--> Illegals instructions
+                //MARK: MISC INSTRUCTIONS
+                Mnemonic::Nop =>
+                    Instruction::Misc(MiscInstruction::Nop),
+                Mnemonic::Halt =>
+                    Instruction::Misc(MiscInstruction::Halt),
+                Mnemonic::Ei =>
+                    Instruction::Misc(MiscInstruction::Ei),
+                Mnemonic::Di =>
+                    Instruction::Misc(MiscInstruction::Di),
 
+                Mnemonic::Stop=> {
+                    let imm = read_next_byte(&mut reg.pc, mem_bus);
+                    Instruction::Misc(MiscInstruction::Stop(imm))
+                }
+                
+                //MARK: ILLEGAL INSTRUCTIONS    
                 | Mnemonic::IllegalD3
                 | Mnemonic::IllegalDb
                 | Mnemonic::IllegalDd
@@ -230,7 +281,7 @@ impl Instruction {
                 | Mnemonic::IllegalFc
                 | Mnemonic::IllegalFd => return None,
                 
-                _ => unimplemented!(),
+                _ => unimplemented!("{opcode:?}"),
             })
         } else {
             None
@@ -292,6 +343,8 @@ fn read_next_word(pc: &mut u16, mem_bus: &MemBus) -> u16{
     word
 }
 
+
+
 ///convert the 3 last bits into a 8bits ArithmeticTarget enum
 const fn byte_to_8_arithmetic_target(byte:u8) -> ArithmeticTarget{
     match byte & 0b111 {
@@ -322,16 +375,11 @@ const fn byte_to_16_arithmetic_target(byte:u8) -> ArithmeticTarget{
 
 ///convert the 2 last bits into a JumpTest, this does not take in account Always
 const fn byte_to_jump_test(byte:u8) -> JumpTest{
-    const NZ:u8 = 0;
-    const  Z:u8 = 1;
-    const NC:u8 = 2;
-    const  C:u8 = 3;
-
     match byte & 0b11 {
-        NZ=> JumpTest::NotZero,
-        Z => JumpTest::Zero,
-        NC=> JumpTest::NotCarry,
-        C => JumpTest::Carry,
+        0b00 => JumpTest::NotZero,
+        0b01 => JumpTest::Zero,
+        0b10 => JumpTest::NotCarry,
+        0b11 => JumpTest::Carry,
         
         4_u8..=u8::MAX => unreachable!()
     }
@@ -354,20 +402,64 @@ const fn byte_to_8_load_dest_addr(byte:u8) -> ByteLoadDest{
     match byte & 0b11 {
         0b00=> ByteLoadDest::AddrBC,
         0b01=> ByteLoadDest::AddrDE,
-        0b10=> ByteLoadDest::AddrHL,
-        0b11=> ByteLoadDest::AddrSP,
+        0b10=> ByteLoadDest::AddrHLadd,
+        0b11=> ByteLoadDest::AddrHLsub,
 
         4_u8..=u8::MAX => unreachable!()
     }
 }
 
-///convert the 2 last bits into a LoadSrc addr enum
+///convert the last 2 bits into a LoadSrc addr enum
 const fn byte_to_8_load_src_addr(byte:u8) -> LoadSrc{
     match byte & 0b11 {
         0b00=> LoadSrc::AddrBC,
         0b01=> LoadSrc::AddrDE,
         0b10=> LoadSrc::AddrHL,
         0b11=> LoadSrc::AddrSP,
+
+        4_u8..=u8::MAX => unreachable!()
+    }
+}
+
+///convert the 3 last bits into a 8bits reg LoadDest enum
+const fn byte_to_8_reg_load_dest(byte:u8) -> ByteLoadDest{
+    match byte & 0b111 {
+        0b000 => ByteLoadDest::B,
+        0b001 => ByteLoadDest::C,
+        0b010 => ByteLoadDest::D,
+        0b011 => ByteLoadDest::E,
+        0b100 => ByteLoadDest::H,
+        0b101 => ByteLoadDest::L,
+        0b110 => ByteLoadDest::AddrHL,
+        0b111 => ByteLoadDest::A,
+
+        8_u8..=u8::MAX => unreachable!()
+    }
+}
+
+///convert the 3 last bits into a 8bits reg LoadSrc enum
+const fn byte_to_8_reg_load_src(byte:u8) -> LoadSrc{
+    match byte & 0b111 {
+        0b000 => LoadSrc::B,
+        0b001 => LoadSrc::C,
+        0b010 => LoadSrc::D,
+        0b011 => LoadSrc::E,
+        0b100 => LoadSrc::H,
+        0b101 => LoadSrc::L,
+        0b110 => LoadSrc::AddrHL,
+        0b111 => LoadSrc::A,
+
+        8_u8..=u8::MAX => unreachable!()
+    }
+}
+
+///Convert the last 2 bits into a StackReg16 enum
+const fn byte_to_stack_r6(byte:u8) -> StackReg16{
+    match byte & 0b11 {
+        0b00 => StackReg16::BC, 
+        0b01 => StackReg16::DE, 
+        0b10 => StackReg16::HL, 
+        0b11 => StackReg16::AF, 
 
         4_u8..=u8::MAX => unreachable!()
     }

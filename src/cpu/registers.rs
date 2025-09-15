@@ -16,11 +16,17 @@ pub struct Registers {
     pub pc : u16,
 }
 
+impl Registers {
+    pub fn zeroed() -> Self{
+        Self { a: 0, f: 0, b: 0, c: 0, d: 0, e: 0, h: 0, l: 0, sp: 0, pc: 0 }
+    }
+}
+
 // -- getters --
 impl Registers {
-    // pub const fn get_af(&self) -> u16 {
-    //     (self.a as u16) << 8 | self.f as u16
-    // }
+    pub const fn get_af(&self) -> u16 {
+        (self.a as u16) << 8 | self.f as u16
+    }
 
     pub const fn get_bc(&self) -> u16 {
         (self.b as u16) << 8 | self.c as u16
@@ -36,6 +42,11 @@ impl Registers {
 }
 // -- setters --
 impl Registers {
+    pub const fn set_af(&mut self, word: u16) {
+        self.a = ((word & 0xFF00) >> 8) as u8;
+        self.f = (word & 0x00FF) as u8;
+    }
+
     pub const fn set_bc(&mut self, word: u16) {
         self.b = ((word & 0xFF00) >> 8) as u8;
         self.c = (word & 0x00FF) as u8;
@@ -94,13 +105,13 @@ impl Registers {
         self.f & ZERO_MASK != 0
     }
 
-    // pub const fn get_substract(&self)->bool{
-    //     self.f & SUBSTRACT_MASK != 0
-    // }
+    pub const fn get_substract(&self)->bool{
+        self.f & SUBSTRACT_MASK != 0
+    }
 
-    // pub const fn get_half_carry(&self)->bool{
-    //     self.f & HALF_CARRY_MASK != 0
-    // }
+    pub const fn get_half_carry(&self)->bool{
+        self.f & HALF_CARRY_MASK != 0
+    }
 
     pub const fn get_carry(&self)->bool{
         self.f & CARRY_MASK != 0

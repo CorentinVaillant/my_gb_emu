@@ -98,6 +98,7 @@ impl Cpu {
                 ArithmeticInstruction::Rrca => self.rrca(),
                 ArithmeticInstruction::Rlca => self.rlca(),
                 ArithmeticInstruction::Cpl => self.cpl(),
+                ArithmeticInstruction::Daa => self.daa(),
 
                 _ => Err(Instruction::Arithmetic(instruction, opt_imm, opt_target))?,
             },
@@ -262,6 +263,28 @@ impl Cpu {
             .set_half_carry((self.reg.a & 0xF) < ((value & 0xF) + carry));
 
         self.reg.a = result;
+    }
+
+    fn daa(&mut self) {
+        let mut adj:u8 = 0;
+        if self.reg.get_substract() {
+            if self.reg.get_half_carry() {
+                adj += 0x6;
+            }
+            if self.reg.get_carry() {
+                adj += 0x60;
+            }
+            self.reg.a = self.reg.a.wrapping_sub(adj)
+        }else{
+            if self.reg.get_half_carry() || (self.reg.a & 0xF) > 9{
+                adj += 0x6;
+            }
+            if self.reg.get_carry() || self.reg.a > 0x99{
+                adj += 0x60;
+                self.reg.set_carry(true);
+            }
+            self.reg.a = self.reg.a.wrapping_add(adj)
+        }
     }
 
     fn and(&mut self, value: u8) {

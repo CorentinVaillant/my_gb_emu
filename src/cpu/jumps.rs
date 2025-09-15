@@ -16,6 +16,8 @@ impl Cpu {
                 //Jr
                 (JumpInstruction::Jr , JumpTarget::ImmS8(offset)) =>
                     self.jr(offset),
+                (JumpInstruction::Rst, JumpTarget::Imm16(target)) =>
+                    self.call(target),
 
                 _=>Err(super::instructions::Instruction::Jump(instruction, test, opt_target))?
             }
@@ -65,6 +67,9 @@ impl Cpu {
     }
 
     fn reti(&mut self){
-        todo!()
+        self.reg.pc = self.mem_bus.readw(self.reg.sp);
+        self.reg.pc = self.reg.pc.wrapping_add(2);
+        self.ime = true;
+        self.halted = true;
     }
 }

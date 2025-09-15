@@ -5,16 +5,21 @@ use crate::{
 
 mod alu;
 pub mod instructions;
-mod registers;
+pub mod registers;
 mod decoder;
 pub mod opcode;
 mod jumps;
 mod load;
 mod errors;
+mod stack;
+mod misc;
 
 #[derive(Debug)]
 pub struct Cpu {
     reg: Registers,
+    halted: bool,
+    ime:bool,
+    low_pow : bool,
     mem_bus: MemBus,
 }
 
@@ -34,12 +39,19 @@ impl Cpu {
                 self.load(target, src)
                     .expect("Could not execute load instruction")
             }
+            Instruction::Stack(instr, reg) =>
+                self.stack(instr, reg),
 
-            _ => unimplemented!(),
+            Instruction::Misc(instr) => 
+                self.misc(instr),
         }
     }
 
     pub fn step(&mut self){
+        if self.halted {return;}
+        if self.ime{
+            self.halted = true;
+        }
         let instr_byte = self.mem_bus.readb(self.reg.pc);
 
         if let Some(instruction) = Instruction::try_read(&mut self.reg, &self.mem_bus){
