@@ -16,15 +16,20 @@ mod misc;
 
 #[derive(Debug)]
 pub struct Cpu {
-    reg: Registers,
-    halted: bool,
-    ime:bool,
-    low_pow : bool,
-    mem_bus: MemBus,
+    pub reg: Registers,
+    pub halted: bool,
+    pub ime:bool,
+    pub low_pow : bool,
+    pub mem_bus: MemBus,
 }
 
 #[allow(unused)]
 impl Cpu {
+    pub fn new(mem:MemBus)->Self {
+        let reg = Registers::zeroed();
+        Self { reg, halted: false, ime: false, low_pow: false, mem_bus: mem }
+    }
+
     pub fn execute(&mut self, instruction: Instruction) {
         match instruction {
             Instruction::Arithmetic(instruction, imm, target) => {
@@ -61,4 +66,25 @@ impl Cpu {
         };
 
     }
+
+
+    pub fn step_verbose(&mut self) -> u16{
+        if self.halted {return self.reg.pc;}
+        if self.ime{
+            self.halted = true;
+        }
+        let instr_byte = self.mem_bus.readb(self.reg.pc);
+
+        if let Some(instruction) = Instruction::try_read(&mut self.reg, &self.mem_bus){
+            println!("read : {instr_byte} => {instruction}");
+            self.execute(instruction);
+        }else{
+            panic!("Cannot decode instruction :0x{:x}", instr_byte);
+        };
+
+        return self.reg.pc;
+
+    }
+
+    
 }

@@ -1,4 +1,6 @@
-use crate::cpu::instructions::Instruction;
+use std::io::Read;
+
+use crate::{cpu::instructions::Instruction, mem_bus::MemBus};
 
 #[inline(always)]
 pub fn panic_illegal_instr(instruction: Instruction) -> ! {
@@ -85,6 +87,16 @@ impl From<Value> for u16{
             Value::Byte(val) => val as u16,
         }
     }
+}
+
+pub fn open_rom(path: &str) -> Result<MemBus, std::io::Error>{
+    let mut file = std::fs::File::open(path)?;
+    let mut bytes: [u8; 0x10000] = core::array::from_fn(|_|0);
+    let read = file.read(&mut bytes)?;
+
+    println!(";; read : 0x{read:0X} bytes");
+
+    Ok(MemBus::from_bytes(&bytes))   
 }
 
 //MARK: TEST

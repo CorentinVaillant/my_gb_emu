@@ -1,52 +1,39 @@
-use crate::{cpu::{instructions::Instruction, opcode::Opcode, registers::Registers}, mem_bus::MemBus};
+use std::error::Error;
 
-pub mod utils;
+
 mod cpu;
 mod mem_bus;
-#[cfg(test)]
-mod test;
+pub mod utils;
+mod apps;
+pub mod graphics;
 
-const TETRIS: &[u8] = include_bytes!("./test/hello.gb");
 
-fn main() {
-    println!("tetris lenth :0x{:0X}", TETRIS.len());
-    let mem_bus = MemBus::from_bytes(TETRIS);
-    let mut regs = Registers::zeroed();
-    regs.pc = 0x0;
+const HELP_MSG :&str = "
+Usage :
+\tgb_emu dbg <rom_path> : launch a tiny debugger onto a rom
+\tgb_emu dasm <rom_path> : print the de-assemble rom 
+";
 
-    #[derive(Debug,Clone)]
-    enum InstrOpcode {
-        Instruction(Instruction),
-        Opcode(Vec<(u8, Result<Opcode, cpu::opcode::InvalideOpcode>)>),
+fn main() -> Result<(),Box<dyn Error>> {
+    let mut args = std::env::args();
+
+    let _arg0 = args.next();
+    let arg1 = args.next().map(|s|s.to_ascii_lowercase());
+    let arg2 = args.next();
+
+    match (arg1.as_deref(),arg2.as_deref()) {
+        (Some("help"),_) => println!("{HELP_MSG}"),
+        (Some("dbg"),Some(path)) => apps::debugger::debug(path)?,
+
+        (Some("deass"),Some(path)) |
+        (Some("deassemble"),Some(path)) |
+        (Some("deasm"),Some(path)) |
+        (Some("dasm"),Some(path))  => apps::deasm::desasm(path)?,
+
+        (Some(x1),Some(x2)) => Err(format!("Unsuported args : {x1},{x2}"))?,
+        (Some(x),None) => Err(format!("Unsuported args : {x}"))?,
+        (None,_) => Err(String::from("Please give some arguments"))?,
     }
-
-    #[derive(Debug,Clone)]
-    struct Ligne{
-        inst_op : InstrOpcode, 
-        nb : u16,
-    }
-
-    let mut instructions = Vec::with_capacity(100);
-    while regs.pc < 0x4000 {
-        let pc_before = regs.pc;
-        let instr_opt = Instruction::try_read(&mut regs, &mem_bus);
-        if let Some(instr) = instr_opt {
-            instructions.push(Ligne{inst_op : InstrOpcode::Instruction(instr), nb : pc_before});
-        }else {
-            let mut opcodes = vec![];
-            for i in pc_before..regs.pc{
-                let byte = mem_bus.readb(i);
-                opcodes.push((byte, Opcode::try_from(byte)));
-            }
-
-            instructions.push(Ligne{inst_op: InstrOpcode::Opcode(opcodes), nb: pc_before});
-        }
-    }
-
-    for ligne in instructions.iter(){
-        match &ligne.inst_op{
-            InstrOpcode::Instruction(instruction) => println!("0x{:04X}|\t\t{instruction}", ligne.nb),
-            InstrOpcode::Opcode(items) => println!("0x{:04X}|;;{:02X?}", ligne.nb, items),
-        }
-    }
+    
+    Ok(())
 }
